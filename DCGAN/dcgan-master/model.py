@@ -1,5 +1,14 @@
+# -*- coding: utf-8 -*-
+"""
+Created on Sun Sep 30 18:10:07 2018
+
+@author: jpansh
+
+This network is using tensorlayer. See the comment to know what layers are in regular tensorflow
+"""
+
+
 import tensorflow as tf
-import tensorlayer as tl
 from tensorlayer.layers import (
     InputLayer,
     DenseLayer,
@@ -13,72 +22,55 @@ from tensorlayer.layers import (
 flags = tf.app.flags
 FLAGS = flags.FLAGS
 
-def generator(inputs, is_train=True, reuse=False):
-    image_size = 64
-    s16 = image_size // 16
-    gf_dim = 64    # Dimension of gen filters in first conv layer. [64]
-    c_dim = FLAGS.c_dim    # n_color 3
-    w_init = tf.glorot_normal_initializer()
-    gamma_init = tf.random_normal_initializer(1., 0.02)
+def generator(inputs):
+    with tf.variable_scope("generator",  reuse=tf.AUTO_REUSE):
 
-    with tf.variable_scope("generator", reuse=reuse):
-
-        net_in = InputLayer(inputs, name='g/in')
-        net_h0 = DenseLayer(net_in, n_units=(gf_dim * 8 * s16 * s16), W_init=w_init,
-                act = tf.identity, name='g/h0/lin')
-        net_h0 = ReshapeLayer(net_h0, shape=[-1, s16, s16, gf_dim*8], name='g/h0/reshape')
-        net_h0 = BatchNormLayer(net_h0, decay=0.9, act=tf.nn.relu, is_train=is_train,
-                gamma_init=gamma_init, name='g/h0/batch_norm')
-
-        net_h1 = DeConv2d(net_h0, gf_dim * 4, (5, 5), strides=(2, 2),
-                padding='SAME', act=None, W_init=w_init, name='g/h1/decon2d')
-        net_h1 = BatchNormLayer(net_h1, decay=0.9, act=tf.nn.relu, is_train=is_train,
-                gamma_init=gamma_init, name='g/h1/batch_norm')
-
-        net_h2 = DeConv2d(net_h1, gf_dim * 2, (5, 5), strides=(2, 2),
-                padding='SAME', act=None, W_init=w_init, name='g/h2/decon2d')
-        net_h2 = BatchNormLayer(net_h2, decay=0.9, act=tf.nn.relu, is_train=is_train,
-                gamma_init=gamma_init, name='g/h2/batch_norm')
-
-        net_h3 = DeConv2d(net_h2, gf_dim, (5, 5), strides=(2, 2),
-                padding='SAME', act=None, W_init=w_init, name='g/h3/decon2d')
-        net_h3 = BatchNormLayer(net_h3, decay=0.9, act=tf.nn.relu, is_train=is_train,
-                gamma_init=gamma_init, name='g/h3/batch_norm')
-
-        net_h4 = DeConv2d(net_h3, c_dim, (5, 5), strides=(2, 2),
-                padding='SAME', act=None, W_init=w_init, name='g/h4/decon2d')
-        net_h4.outputs = tf.nn.tanh(net_h4.outputs)
-    return net_h4
-
-def discriminator(inputs, is_train=True, reuse=False):
-    df_dim = 64   # Dimension of discrim filters in first conv layer. [64]
-    w_init = tf.glorot_normal_initializer()
-    gamma_init = tf.random_normal_initializer(1., 0.02)
-    lrelu = lambda x : tf.nn.leaky_relu(x, 0.2)
-    with tf.variable_scope("discriminator", reuse=reuse):
+        net_in = InputLayer(inputs, name='gin')
         
-        net_in = InputLayer(inputs, name='d/in')
-        net_h0 = Conv2d(net_in, df_dim, (5, 5), (2, 2), act=lrelu,
-                padding='SAME', W_init=w_init, name='d/h0/conv2d')
+        gnet_d0 = DenseLayer(net_in, n_units=(16384),act = tf.identity, name='gnet_d0')
+        gnet_r0 = ReshapeLayer(gnet_d0, shape=[-1,4,4,1024], name='gnet_r0')
+        gnet_b0 = BatchNormLayer(gnet_r0, decay=0.8, act=tf.nn.relu, name='gnet_b0')
 
-        net_h1 = Conv2d(net_h0, df_dim*2, (5, 5), (2, 2), act=None,
-                padding='SAME', W_init=w_init, name='d/h1/conv2d')
-        net_h1 = BatchNormLayer(net_h1, decay=0.9, act=lrelu,
-                is_train=is_train, gamma_init=gamma_init, name='d/h1/batch_norm')
+        gnet_dc1 = DeConv2d(gnet_b0, 128, (8, 8), strides=(2, 2),padding='SAME', act=None, name='gnet_dc1')
+        gnet_b1 = BatchNormLayer(gnet_dc1, decay=0.8, act=tf.nn.relu, name='gnet_b1')
 
-        net_h2 = Conv2d(net_h1, df_dim*4, (5, 5), (2, 2), act=None,
-                padding='SAME', W_init=w_init, name='d/h2/conv2d')
-        net_h2 = BatchNormLayer(net_h2, decay=0.9, act=lrelu,
-                is_train=is_train, gamma_init=gamma_init, name='d/h2/batch_norm')
+        gnet_dc2 = DeConv2d(gnet_b1, 64, (8, 8), strides=(2, 2),padding='SAME', act=None, name='gnet_dc2')
+        gnet_b2 = BatchNormLayer(gnet_dc2, decay=0.8, act=tf.nn.relu, name='gnet_b2')
 
-        net_h3 = Conv2d(net_h2, df_dim*8, (5, 5), (2, 2), act=None,
-                padding='SAME', W_init=w_init, name='d/h3/conv2d')
-        net_h3 = BatchNormLayer(net_h3, decay=0.9, act=lrelu,
-                is_train=is_train, gamma_init=gamma_init, name='d/h3/batch_norm')
+        gnet_dc3 = DeConv2d(gnet_b2, 32, (8, 8), strides=(2, 2),padding='SAME', act=None, name='gnet_dc3')
+        gnet_b3 = BatchNormLayer(gnet_dc3, decay=0.8, act=tf.nn.relu, name='gnet_b3')
 
-        net_h4 = FlattenLayer(net_h3, name='d/h4/flatten')
-        net_h4 = DenseLayer(net_h4, n_units=1, act=tf.identity,
-                W_init = w_init, name='d/h4/lin_sigmoid')
-        logits = net_h4.outputs
-        net_h4.outputs = tf.nn.sigmoid(net_h4.outputs)
-    return net_h4, logits
+        gnet_dc4 = DeConv2d(gnet_b3, 3, (8, 8), strides=(2, 2),padding='SAME', act=None, name='net_h4')
+        
+        #Based on the paper, we need to provide non-linearity to the generated image
+        #TODO: Why?
+        gnet_dc4.outputs = tf.nn.tanh(gnet_dc4.outputs)
+    return gnet_dc4
+
+def discriminator(inputs):
+    with tf.variable_scope("discriminator", reuse=tf.AUTO_REUSE):
+        net_in = InputLayer(inputs, name='din')
+        
+        #Conv2d is tf.nn.conv2d + tf.nn.relu
+        dnet_c0 = Conv2d(net_in, 32, (8, 8), (2, 2), act=tf.nn.relu, padding='SAME', name='dnet_c0')
+    
+        #Conv2d is tf.nn.conv2d
+        #BatchNormLayer is tf.nn.batch_normalization + tf.nn.relu
+        dnet_c1 = Conv2d(dnet_c0, 64, (8, 8), (2, 2), act=None,padding='SAME', name='dnet_c1')
+        dnet_b1 = BatchNormLayer(dnet_c1, decay=0.8, act=tf.nn.relu, name='dnet_b1')
+        
+    #    dnet_p1 = MaxPool2d(dnet_b1, (2, 2), name='pool2')   #Don't use pool layer, it is not good. But you can try.
+        
+        dnet_c2 = Conv2d(dnet_b1, 128, (8, 8), (2, 2), act=None,padding='SAME', name='dnet_c2')
+        dnet_b2 = BatchNormLayer(dnet_c2, decay=0.8, act=tf.nn.relu, name='dnet_b2')
+    
+        dnet_c3 = Conv2d(dnet_b2, 256, (8, 8), (2, 2), act=None,padding='SAME', name='dnet_c3')
+        dnet_b3 = BatchNormLayer(dnet_c3, decay=0.8, act=tf.nn.relu,name='dnet_b3')
+    
+        #FlattenLayer is tf.reshape
+        dnet_f1 = FlattenLayer(dnet_b3, name='dnet_f1') 
+        #DenseLayer is tf.layers.dense, the full-connected
+        dnet_d1 = DenseLayer(dnet_f1, n_units=1, act = tf.identity, name='dnet_h4')
+        logits = tf.nn.sigmoid(dnet_d1.outputs)
+        
+    return dnet_d1, logits
