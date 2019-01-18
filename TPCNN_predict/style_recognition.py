@@ -334,11 +334,6 @@ def main():
     tf.logging.set_verbosity(tf.logging.INFO)
 
     loss, acc, acc_op, prediction,logits,obj_logits,obj_prediction,tex_prediction,testing_prediction,testing_acc,testing_acc_op = cnn_model_fn()
-
-    variable_summaries(loss, "loss")
-    variable_summaries(acc, "acc")
-    merged_summary = tf.summary.merge_all()
-
     optimizer = tf.train.AdamOptimizer(learning_rate=0.00001,epsilon=1e-08,use_locking=False)
  
     train_op = optimizer.minimize(loss)
@@ -359,21 +354,11 @@ def main():
     arr = []
     saver = tf.train.Saver(tf.trainable_variables())
     with tf.device('/gpu:0'), tf.Session() as sess:
-        # train_writer = tf.summary.FileWriter("train_graphs/", sess.graph)
-        # eval_writer = tf.summary.FileWriter("eval_graphs/", sess.graph)
-        # vali_writer = tf.summary.FileWriter("vali_graphs/", sess.graph)
-        # sess.run(tf.global_variables_initializer())
-        # sess.run(tf.local_variables_initializer())
+        sess.run(tf.global_variables_initializer())
+        sess.run(tf.local_variables_initializer())
 
         print('restoring model...')
-#        test_weight = tf.get_default_graph().get_tensor_by_name('conv1_1_w:0')
-#        prev = sess.run(test_weight)
         saver.restore(sess, tf.train.latest_checkpoint(check_pt_path_str))
-#        after = sess.run(test_weight)
-        # Calc difference before read and after read
-#        diff = after - prev
-#        diff = diff.sum()
-#        print('restored:' + str(diff))
 
         while True: 
             train_data, train_label = sess.run(next_train_batch)
@@ -384,18 +369,18 @@ def main():
             print('processing batch:' + str(count))
             _, _, _, channel =  train_data.shape
             if channel == 3:
-#                 for _ in range(100):
-#                     train_dict = {net['input']:  train_data, net['labels']:  train_label}
-# ##                        # Train the model
-#                     update_ops = tf.get_collection(tf.GraphKeys.UPDATE_OPS)
-#                     with tf.control_dependencies(update_ops):
-#                         loss_val = sess.run(loss, feed_dict=train_dict)
-#                         print('loss:' + str(loss_val))
-#                         if loss_val < 0.1:
-#                             break
-#                         if math.isnan(loss_val):
-#                             return
-#                         sess.run(train_op, feed_dict=train_dict)
+                 for _ in range(100):
+                     train_dict = {net['input']:  train_data, net['labels']:  train_label}
+ ##                        # Train the model
+                     update_ops = tf.get_collection(tf.GraphKeys.UPDATE_OPS)
+                     with tf.control_dependencies(update_ops):
+                         loss_val = sess.run(loss, feed_dict=train_dict)
+                         print('loss:' + str(loss_val))
+                         if loss_val < 0.1:
+                             break
+                         if math.isnan(loss_val):
+                             return
+                         sess.run(train_op, feed_dict=train_dict)
 # # #
                 train_dict = {net['input']: train_data, net['labels']: train_label}
                 train_pre_val = str(sess.run(prediction, feed_dict=train_dict))
